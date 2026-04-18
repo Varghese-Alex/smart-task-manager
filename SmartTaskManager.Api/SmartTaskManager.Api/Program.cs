@@ -57,6 +57,7 @@ builder.Services.AddScoped<JwtHelper>();
 // Services (Business Logic)
 // =====================================
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ITaskService, TaskService>();
 
 // =====================================
 // Authentication (JWT)

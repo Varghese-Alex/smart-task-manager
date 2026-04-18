@@ -1,75 +1,4 @@
-# Task 07 - Task Service Layer
-
-## Goal
-
-Create the task service that contains business logic for creating, reading, updating, and deleting tasks.
-
-By the end of this task, all task operations should go through `ITaskService` and `TaskService`.
-
----
-
-## Why This Task Matters
-
-The service layer is where application rules live.
-
-```text
-Controller → handles HTTP
-Service → business logic
-Repository → database access
-```
-
----
-
-## Steps
-
----
-
-### 1. Create ITaskService
-
-📁 `Services/Interfaces/ITaskService.cs`
-
-```csharp
-using SmartTaskManager.Api.DTOs;
-using SmartTaskManager.Api.DTOs.Tasks;
-using SmartTaskManager.Api.Models;
-
-namespace SmartTaskManager.Api.Services.Interfaces
-{
-    public interface ITaskService
-    {
-        Task<PagedResponseDto<TaskResponseDto>> GetTasksAsync(
-            int userId,
-            TaskItemStatus? status,
-            string? search,
-            int page,
-            int pageSize);
-
-        Task<TaskResponseDto> CreateTaskAsync(int userId, TaskCreateDto dto);
-
-        Task<TaskResponseDto?> UpdateTaskAsync(
-            int userId,
-            int taskId,
-            TaskUpdateDto dto);
-
-        Task<bool> DeleteTaskAsync(int userId, int taskId);
-    }
-}
-```
-
----
-
-## Why include `userId`
-
-Ensures all operations are scoped to the logged-in user.
-
----
-
-### 2. Create TaskService
-
-📁 `Services/TaskService.cs`
-
-```csharp
-using SmartTaskManager.Api.DTOs;
+﻿using SmartTaskManager.Api.DTOs;
 using SmartTaskManager.Api.DTOs.Tasks;
 using SmartTaskManager.Api.Models;
 using SmartTaskManager.Api.Repositories.Interfaces;
@@ -93,7 +22,7 @@ namespace SmartTaskManager.Api.Services
             int page,
             int pageSize)
         {
-            // 🔥 Normalize pagination
+            // Normalize pagination
             if (page < 1) page = 1;
             if (pageSize < 1) pageSize = 10;
             if (pageSize > 100) pageSize = 100;
@@ -162,7 +91,7 @@ namespace SmartTaskManager.Api.Services
             return true;
         }
 
-        // 🔥 Mapping helper
+        // Mapping helper
         private static TaskResponseDto MapToResponse(TaskItem task)
         {
             return new TaskResponseDto
@@ -176,80 +105,3 @@ namespace SmartTaskManager.Api.Services
         }
     }
 }
-```
-
----
-
-## 🔥 Important Concepts
-
-### Pagination Protection
-
-```text
-page < 1 → fix to 1
-pageSize > 100 → limit to 100
-```
-
-Prevents expensive queries.
-
----
-
-### Ownership Enforcement
-
-```text
-GetById(taskId, userId)
-```
-
-Ensures users cannot modify others’ tasks.
-
----
-
-### Mapping Layer
-
-```text
-Entity → DTO
-```
-
-Prevents exposing internal structure.
-
----
-
-## 3. Register TaskService
-
-📁 `Program.cs`
-
-Add:
-
-```csharp
-builder.Services.AddScoped<ITaskService, TaskService>();
-```
-
-Place it with other services.
-
----
-
-## Completion Criteria
-
-* Service exists
-* Pagination works
-* Tasks filtered by user
-* Tasks created with correct ownership
-* Tasks updated only if owned
-* Tasks deleted only if owned
-* DTO mapping works
-* Service registered
-
----
-
-## Commit Your Work
-
-```bash
-git add .
-git commit -m "feat(task-07): implement task service with business logic and pagination"
-git push
-```
-
----
-
-## Next Step
-
-👉 Task 08 - Controllers and API Endpoints
