@@ -19,10 +19,15 @@ namespace SmartTaskManager.Api.Controllers
             _taskService = taskService;
         }
 
-        // 🔥 Helper: Get user id from JWT
-        private int GetCurrentUserId()
+        // Helper: Get user id from JWT
+        private int? GetCurrentUserId()
         {
-            return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (int.TryParse(userIdClaim, out var userId))
+                return userId;
+
+            return null;
         }
 
         // =====================================
@@ -54,7 +59,7 @@ namespace SmartTaskManager.Api.Controllers
             var created = await _taskService.CreateTaskAsync(userId, dto);
 
             return CreatedAtAction(
-                nameof(GetTasks),
+                nameof(GetTaskById),
                 new { id = created.Id },
                 created);
         }
@@ -91,6 +96,23 @@ namespace SmartTaskManager.Api.Controllers
                 return NotFound();
 
             return NoContent();
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetTaskById(int id)
+        {
+            var userId = GetCurrentUserId();
+
+            if (userId == null)
+                return Unauthorized();
+
+            var tasks = await _taskService.GetTasksAsync(userId.Value, null, null, 1, int.MaxValue);
+            var task = tasks.Data.FirstOrDefault(t => t.Id == id);
+
+            if (task == null)
+                return NotFound();
+
+            return Ok(task);
         }
     }
 }
