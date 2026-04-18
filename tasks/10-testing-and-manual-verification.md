@@ -2,41 +2,70 @@
 
 ## Goal
 
-Verify that the backend works correctly through manual API testing and, optionally, automated tests.
+Verify that the backend works correctly by testing all APIs end-to-end.
 
-By the end of this task, you should have confidence that registration, login, and task operations work together.
+By the end of this task, you should be confident that:
+
+* Authentication works
+* Task operations work
+* Security rules are enforced
+
+---
 
 ## Why This Task Matters
 
-Code that compiles is not automatically correct.
+Code running ≠ Code working correctly
 
-Testing checks whether the API behaves as expected from a user's point of view. It also catches mistakes in authentication, ownership, validation, and database logic.
+```text
+Testing = verifying real user behavior
+```
+
+This ensures:
+
+```text
+Auth → Works
+Tasks → Work
+Security → Works
+```
+
+---
 
 ## Steps
 
-### 1. Run the application
+---
 
-Start the API from Visual Studio:
+### 1. Run the Application
 
-1. Set `SmartTaskManager.Api` as the startup project.
-2. Select the HTTPS launch profile.
-3. Press `F5` to debug or `Ctrl+F5` to run without debugging.
-
-Visual Studio should open Swagger automatically. If it does not, open:
+Start the API:
 
 ```text
-https://localhost:xxxx/swagger
+F5 → Debug
+or
+Ctrl + F5 → Run
 ```
 
-### 2. Test registration
+---
 
-Call:
+### 2. Set Up Postman
+
+Use your collection:
 
 ```text
-POST /api/auth/register
+Smart Task Manager API
 ```
 
-Body:
+Set variables:
+
+```text
+baseUrl = https://localhost:xxxx
+token   = (auto-filled after login)
+```
+
+---
+
+### 3. Test Registration
+
+📌 `POST /api/auth/register`
 
 ```json
 {
@@ -45,33 +74,55 @@ Body:
 }
 ```
 
-Expected:
+---
 
-- Status code is `200 OK` or `201 Created`.
-- Response contains a token.
-- Response contains the email.
-- Database contains a new user.
-- Password is stored as a hash, not plain text.
-
-### 3. Test duplicate registration
-
-Send the same registration request again.
-
-Expected:
-
-- Request fails.
-- Error message is understandable.
-- Database still has only one user with that email.
-
-### 4. Test login
-
-Call:
+### ✅ Expected
 
 ```text
-POST /api/auth/login
+200 OK
 ```
 
-Body:
+Response:
+
+```json
+{
+  "email": "test@mail.com",
+  "token": "..."
+}
+```
+
+---
+
+### 🔍 Verify
+
+* User created in DB
+* Password is hashed
+
+---
+
+### 4. Test Duplicate Registration
+
+Send same request again.
+
+---
+
+### ✅ Expected
+
+```text
+400 Bad Request
+```
+
+```json
+{
+  "message": "Email already registered."
+}
+```
+
+---
+
+### 5. Test Login
+
+📌 `POST /api/auth/login`
 
 ```json
 {
@@ -80,36 +131,61 @@ Body:
 }
 ```
 
-Expected:
+---
 
-- Status code is `200 OK`.
-- Response contains a JWT token.
-
-### 5. Authorize Swagger
-
-In Swagger:
-
-1. Click the authorize button.
-2. Enter the JWT token.
-3. If Swagger expects a bearer value, enter:
+### ✅ Expected
 
 ```text
-Bearer YOUR_TOKEN_HERE
+200 OK
 ```
 
-Why:
+```json
+{
+  "email": "test@mail.com",
+  "token": "..."
+}
+```
 
-Task endpoints require authentication.
+---
 
-### 6. Test task creation
+### 🔥 Token Handling
 
-Call:
+Token should be automatically saved:
 
 ```text
-POST /api/tasks
+{{token}}
 ```
 
-Body:
+---
+
+### 6. Test Invalid Login
+
+```json
+{
+  "email": "test@mail.com",
+  "password": "wrong"
+}
+```
+
+---
+
+### ✅ Expected
+
+```text
+401 Unauthorized
+```
+
+```json
+{
+  "message": "Invalid email or password."
+}
+```
+
+---
+
+### 7. Test Task Creation
+
+📌 `POST /api/tasks`
 
 ```json
 {
@@ -119,50 +195,72 @@ Body:
 }
 ```
 
-Expected:
+---
 
-- Status code is `201 Created` or `200 OK`.
-- Response contains task id.
-- Task belongs to the authenticated user.
-- Status defaults to pending.
-
-### 7. Test task listing
-
-Call:
+### ✅ Expected
 
 ```text
-GET /api/tasks?page=1&pageSize=10
+201 Created
 ```
 
-Expected:
+```json
+{
+  "id": 1,
+  "title": "Finish project"
+}
+```
 
-- Response contains `data`.
-- Response contains `totalCount`.
-- Created task appears in `data`.
+---
 
-### 8. Test filtering
+### 🔍 Verify
 
-Try:
+* Task belongs to logged-in user
+* Status defaults to `Pending`
+
+---
+
+### 8. Test Task Listing
+
+📌 `GET /api/tasks?page=1&pageSize=10`
+
+---
+
+### ✅ Expected
+
+```json
+{
+  "data": [...],
+  "totalCount": 1
+}
+```
+
+---
+
+### 9. Test Filtering
+
+📌 Status filter:
 
 ```text
 GET /api/tasks?status=0
+```
+
+📌 Search:
+
+```text
 GET /api/tasks?search=project
 ```
 
-Expected:
+---
 
-- Status filter returns tasks with matching status.
-- Search returns tasks with matching title or description.
+### ✅ Expected
 
-### 9. Test task update
+* Correct filtered results
 
-Call:
+---
 
-```text
-PUT /api/tasks/{id}
-```
+### 10. Test Task Update
 
-Body:
+📌 `PUT /api/tasks/{id}`
 
 ```json
 {
@@ -173,79 +271,167 @@ Body:
 }
 ```
 
-Expected:
+---
 
-- Status code is `200 OK`.
-- Response shows updated values.
-- Status changed to completed.
-
-### 10. Test task deletion
-
-Call:
+### ✅ Expected
 
 ```text
-DELETE /api/tasks/{id}
+200 OK
 ```
 
-Expected:
+* Task updated
+* Status = Completed
 
-- Status code is `204 No Content`.
-- Task no longer appears in list results.
+---
 
-### 11. Test unauthorized access
+### 11. Test Task Deletion
 
-Call a task endpoint without a token.
+📌 `DELETE /api/tasks/{id}`
 
-Expected:
+---
 
-- Status code is `401 Unauthorized`.
+### ✅ Expected
 
-Why:
+```text
+204 No Content
+```
 
-This confirms `[Authorize]` is working.
+* Task removed
 
-### 12. Test ownership protection
+---
 
-Create a second user.
+### 12. Test Unauthorized Access
 
-Try to access or update the first user's task while authenticated as the second user.
+Call any task API **without token**
 
-Expected:
+---
 
-- The task should not be visible.
-- Update or delete should return `404 Not Found`.
+### ✅ Expected
 
-Why:
+```text
+401 Unauthorized
+```
 
-This confirms user data isolation.
+---
 
-## Optional Automated Tests
+### 13. Test Ownership Protection
 
-After manual testing works, consider adding automated tests.
+1. Register second user
+2. Login as second user
+3. Try to access first user's task
 
-Useful test categories:
+---
 
-- Auth service registration succeeds.
-- Auth service rejects duplicate email.
-- Auth service rejects invalid login.
-- Task service creates tasks for the correct user.
-- Task service prevents cross-user updates.
-- Task service applies pagination.
+### ✅ Expected
+
+```text
+404 Not Found
+```
+
+---
+
+### 🔥 Why
+
+```text
+Tasks are scoped by userId
+```
+
+---
+
+## 🔥 Important Concepts
+
+---
+
+### Full Flow
+
+```text
+Register → Login → Get Token → Access Tasks
+```
+
+---
+
+### Security Flow
+
+```text
+JWT → Controller → Service → Repository
+```
+
+---
+
+### Data Isolation
+
+```text
+User A ≠ User B data
+```
+
+---
 
 ## Completion Criteria
 
-You are done when:
+* Registration works
+* Duplicate email handled
+* Login works
+* Invalid login returns 401
+* Tasks can be created
+* Tasks can be listed
+* Tasks can be updated
+* Tasks can be deleted
+* Unauthorized requests fail
+* Cross-user access is blocked
 
-- Registration works.
-- Duplicate registration fails safely.
-- Login works.
-- Authenticated task creation works.
-- Task listing, filtering, updating, and deleting work.
-- Unauthenticated task requests fail.
-- Cross-user task access is blocked.
+---
 
-## Learning Notes
+## Optional Next Step (Advanced)
 
-Manual tests teach the API flow.
+After manual testing:
 
-Automated tests protect that flow from future changes. Start manually so you understand the behavior, then automate the important cases.
+* Add unit tests
+* Add integration tests
+
+---
+
+## Commit Your Work
+
+```bash
+git add .
+git commit -m "feat(task-10): add manual testing verification for auth and task APIs"
+git push
+```
+
+---
+
+## Final Result
+
+Your API is now:
+
+```text
+✔ Functional
+✔ Secure
+✔ Tested
+✔ Production-ready (for learning project)
+```
+
+---
+
+## 🎉 Project Milestone
+
+You have built:
+
+```text
+Full Backend API with:
+- Authentication (JWT)
+- Authorization
+- CRUD operations
+- Security rules
+- Error handling
+- Testing
+```
+
+---
+
+## Next Step
+
+👉 Deploy the API (Azure / Render / Railway)
+👉 Or build frontend (React)
+
+---
