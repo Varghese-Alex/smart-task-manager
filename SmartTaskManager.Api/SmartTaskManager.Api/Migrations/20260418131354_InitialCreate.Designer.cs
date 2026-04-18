@@ -5,13 +5,14 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using SmartTaskManager.Api.Data;
 
 #nullable disable
 
 namespace SmartTaskManager.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260418123726_InitialCreate")]
+    [Migration("20260418131354_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
