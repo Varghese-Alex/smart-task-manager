@@ -6,177 +6,288 @@ Create request and response DTOs for authentication and task operations, then ad
 
 By the end of this task, the API should have clear input and output shapes without exposing database entities directly.
 
+---
+
 ## Why This Task Matters
 
 DTO means Data Transfer Object.
 
 DTOs protect your application in two ways:
 
-- They prevent clients from sending fields they should not control.
-- They prevent the API from exposing internal database details.
+* Prevent clients from sending fields they should not control
+* Prevent exposing internal database structure
 
-For example, a user should never send `PasswordHash`. They should send `Password`, and the backend should create the hash internally.
+Example:
+
+A user should send:
+
+```text
+Email + Password
+```
+
+NOT:
+
+```text
+PasswordHash
+```
+
+---
 
 ## Steps
 
-### 1. Create authentication DTOs
+---
 
-In Solution Explorer, right-click `DTOs/Auth`, choose `Add -> Class`, and create `RegisterDto.cs`:
+### 1. Create Authentication DTOs
 
-```csharp
-public class RegisterDto
-{
-    public string Email { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
-}
-```
+📁 Folder: `DTOs/Auth`
 
-Then create `LoginDto.cs` in the same folder:
+---
 
-```csharp
-public class LoginDto
-{
-    public string Email { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
-}
-```
-
-Then create `AuthResponseDto.cs` in the same folder:
-
-```csharp
-public class AuthResponseDto
-{
-    public string Token { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-}
-```
-
-Why:
-
-- Register and login inputs are similar but separate so they can evolve independently.
-- The response contains the JWT token and basic user identity.
-
-### 2. Create task DTOs
-
-In Solution Explorer, right-click `DTOs/Task`, choose `Add -> Class`, and create `TaskCreateDto.cs`:
-
-```csharp
-public class TaskCreateDto
-{
-    public string Title { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public DateTime? DueDate { get; set; }
-}
-```
-
-Then create `TaskUpdateDto.cs` in the same folder:
-
-```csharp
-public class TaskUpdateDto
-{
-    public string Title { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public DateTime? DueDate { get; set; }
-    public int Status { get; set; }
-}
-```
-
-Then create `TaskResponseDto.cs` in the same folder:
-
-```csharp
-public class TaskResponseDto
-{
-    public int Id { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public DateTime? DueDate { get; set; }
-    public int Status { get; set; }
-}
-```
-
-Why:
-
-- Create DTO does not contain `Id`, `UserId`, or `CreatedAt`.
-- Update DTO allows changing task fields but still does not expose ownership.
-- Response DTO returns only the fields the client needs.
-
-### 3. Create a paged response DTO
-
-For `GET /api/tasks`, create a reusable response shape:
-
-```csharp
-public class PagedResponseDto<T>
-{
-    public List<T> Data { get; set; } = new();
-    public int TotalCount { get; set; }
-}
-```
-
-You can place this in `DTOs/PagedResponseDto.cs`.
-
-In Visual Studio, right-click the `DTOs` folder and use `Add -> Class`.
-
-Why:
-
-The design says the list endpoint should return `data` and `totalCount`. A generic DTO lets you reuse this pattern later.
-
-### 4. Add validation attributes
-
-Use data annotations for simple validation:
+#### 📄 RegisterDto.cs
 
 ```csharp
 using System.ComponentModel.DataAnnotations;
 
-public class RegisterDto
+namespace SmartTaskManager.Api.DTOs.Auth
 {
-    [Required]
-    [EmailAddress]
-    public string Email { get; set; } = string.Empty;
+    public class RegisterDto
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
 
-    [Required]
-    [MinLength(6)]
-    public string Password { get; set; } = string.Empty;
+        [Required]
+        [MinLength(6)]
+        public string Password { get; set; } = string.Empty;
+    }
 }
 ```
 
-Apply similar rules:
+---
 
-- `LoginDto.Email`: required, email address.
-- `LoginDto.Password`: required.
-- `TaskCreateDto.Title`: required, reasonable max length.
-- `TaskUpdateDto.Title`: required, reasonable max length.
-- `TaskUpdateDto.Status`: restrict to known status values in service logic.
+#### 📄 LoginDto.cs
 
-Why:
+```csharp
+using System.ComponentModel.DataAnnotations;
 
-Validation catches bad input before it reaches business logic or database code.
+namespace SmartTaskManager.Api.DTOs.Auth
+{
+    public class LoginDto
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
 
-### 5. Think about nullability
+        [Required]
+        public string Password { get; set; } = string.Empty;
+    }
+}
+```
 
-Use nullable types only when a value is truly optional:
+---
 
-- `Description` can be nullable.
-- `DueDate` can be nullable.
-- `Title` should not be nullable.
-- `Email` should not be nullable.
-- `Password` should not be nullable.
+#### 📄 AuthResponseDto.cs
 
-Why:
+```csharp
+namespace SmartTaskManager.Api.DTOs.Auth
+{
+    public class AuthResponseDto
+    {
+        public string Token { get; set; } = string.Empty;
 
-Good nullability decisions make bugs easier to see during development.
+        public string Email { get; set; } = string.Empty;
+    }
+}
+```
+
+---
+
+### Why
+
+* Separate DTOs allow flexibility
+* Input and output are controlled independently
+* Sensitive data is never exposed
+
+---
+
+### 2. Create Task DTOs
+
+📁 Folder: `DTOs/Tasks`
+
+---
+
+#### 📄 TaskCreateDto.cs
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+
+namespace SmartTaskManager.Api.DTOs.Tasks
+{
+    public class TaskCreateDto
+    {
+        [Required]
+        [MaxLength(200)]
+        public string Title { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
+
+        public DateTime? DueDate { get; set; }
+    }
+}
+```
+
+---
+
+#### 📄 TaskUpdateDto.cs
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+using SmartTaskManager.Api.Models;
+
+namespace SmartTaskManager.Api.DTOs.Tasks
+{
+    public class TaskUpdateDto
+    {
+        [Required]
+        [MaxLength(200)]
+        public string Title { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
+
+        public DateTime? DueDate { get; set; }
+
+        public TaskItemStatus Status { get; set; }
+    }
+}
+```
+
+---
+
+#### 📄 TaskResponseDto.cs
+
+```csharp
+using SmartTaskManager.Api.Models;
+
+namespace SmartTaskManager.Api.DTOs.Tasks
+{
+    public class TaskResponseDto
+    {
+        public int Id { get; set; }
+
+        public string Title { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
+
+        public DateTime? DueDate { get; set; }
+
+        public TaskItemStatus Status { get; set; }
+    }
+}
+```
+
+---
+
+### Why
+
+* Create DTO excludes system-controlled fields
+* Update DTO allows controlled updates
+* Response DTO returns only needed data
+
+---
+
+### 3. Create Paged Response DTO
+
+📁 File: `DTOs/PagedResponseDto.cs`
+
+```csharp
+namespace SmartTaskManager.Api.DTOs
+{
+    public class PagedResponseDto<T>
+    {
+        public List<T> Data { get; set; } = new();
+
+        public int TotalCount { get; set; }
+    }
+}
+```
+
+---
+
+### Why
+
+* Standardizes list responses
+* Makes pagination reusable
+* Keeps API consistent
+
+---
+
+### 4. Validation Rules
+
+Using Data Annotations:
+
+* Email → `[Required]`, `[EmailAddress]`
+* Password → `[Required]`, `[MinLength(6)]`
+* Title → `[Required]`, `[MaxLength(200)]`
+
+---
+
+### Why Validation Matters
+
+Validation ensures:
+
+* Bad input is rejected early
+* Business logic stays clean
+* Database errors are avoided
+
+---
+
+### 5. Nullability Decisions
+
+Use nullable only when necessary:
+
+* `Description` → nullable ✔
+* `DueDate` → nullable ✔
+* `Title` → NOT nullable ❌
+* `Email` → NOT nullable ❌
+* `Password` → NOT nullable ❌
+
+---
+
+## Important Concept
+
+### Models vs DTOs
+
+* Models → database structure
+* DTOs → API contract
+
+👉 Never expose models directly in APIs
+
+---
 
 ## Completion Criteria
 
 You are done when:
 
-- Auth DTOs exist.
-- Task DTOs exist.
-- A paged response DTO exists.
-- Required fields have validation rules.
-- Database entities are not used directly as API request or response bodies.
+* Auth DTOs exist
+* Task DTOs exist
+* Paged response DTO exists
+* Validation attributes are applied
+* Models are NOT used directly in API requests/responses
 
-## Learning Notes
+---
 
-DTOs are part of your API contract.
+## Commit Your Work
 
-Changing an entity is an internal database decision. Changing a DTO is a client-facing API decision. Separating them gives you control over both.
+```bash
+git add .
+git commit -m "feat(task-04): add DTOs and validation for auth and tasks"
+git push
+```
+
+---
+
+## Next Step
+
+👉 Proceed to:
+
+**Task 05 - Repository Layer**

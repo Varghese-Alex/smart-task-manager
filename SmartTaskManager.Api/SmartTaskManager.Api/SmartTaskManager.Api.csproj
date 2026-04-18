@@ -22,8 +22,6 @@
 
   <ItemGroup>
     <Folder Include="Controllers\" />
-    <Folder Include="DTOs\Auth\" />
-    <Folder Include="DTOs\Tasks\" />
     <Folder Include="Helpers\" />
     <Folder Include="Middleware\" />
     <Folder Include="Repositories\Interfaces\" />
