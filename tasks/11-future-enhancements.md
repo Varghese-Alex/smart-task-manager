@@ -2,149 +2,301 @@
 
 ## Goal
 
-Plan future improvements after the core backend is working.
+Understand how the backend can be extended after the core features are complete.
 
-This task is not required for the first version. It helps you understand how production systems grow over time.
+This task focuses on planning improvements, not implementing them.
+
+---
 
 ## Why This Task Matters
 
-The high-level design mentions future enhancements:
+The current system is:
 
-- Role-based authorization.
-- Redis caching.
-- Background jobs.
-- Docker support.
-- CI/CD pipelines.
+```text id="q3p7dw"
+✔ Functional
+✔ Secure
+✔ Tested
+```
 
-These are valuable, but they should come after the core application works. Adding them too early can make learning harder because there are too many moving parts.
+But production systems evolve with:
 
-## Enhancement 1 - Role-Based Authorization
+```text id="4z8m1z"
+Performance
+Scalability
+Maintainability
+Automation
+```
 
-### What It Adds
+---
 
-Different permissions for different user types.
+## Enhancements Overview
 
-Example roles:
+---
 
-- User
-- Admin
+### 1. Role-Based Authorization
 
-### Why Add It Later
+#### What It Adds
 
-The first version only needs users to manage their own tasks. Roles become useful when admins need to view system-wide data or manage users.
+Different permissions for different users.
 
-### Suggested Steps
+```text id="c7y2s1"
+User → manages own tasks
+Admin → can view/manage all users
+```
 
-1. Add a `Role` property to `User`.
-2. Include role claims in JWT.
-3. Use `[Authorize(Roles = "Admin")]` on admin endpoints.
-4. Add tests for role-restricted access.
+---
 
-## Enhancement 2 - Redis Caching
+#### Suggested Changes
 
-### What It Adds
+📁 `Models/User.cs`
 
-Redis can store frequently requested data in memory.
+```csharp id="g2ybqf"
+public string Role { get; set; } = "User";
+```
 
-### Why Add It Later
+---
 
-Caching makes systems faster but also more complex. You need to handle stale data and cache invalidation.
+📁 `JwtHelper.cs`
 
-### Suggested Steps
+```csharp id="x0r2aj"
+new Claim(ClaimTypes.Role, user.Role)
+```
 
-1. Identify slow or frequently used reads.
-2. Cache list responses or summary data.
-3. Invalidate cache when tasks are created, updated, or deleted.
-4. Measure performance before and after.
+---
 
-## Enhancement 3 - Background Jobs
+📁 Controller Example
 
-### What It Adds
+```csharp id="y5h0df"
+[Authorize(Roles = "Admin")]
+```
 
-Background jobs run work outside the normal HTTP request flow.
+---
 
-Possible examples:
+#### Why Later?
 
-- Send reminder emails before due dates.
-- Clean up old completed tasks.
-- Generate daily task summaries.
+```text id="7i7y9g"
+No admin use-case yet
+```
 
-### Why Add It Later
+---
 
-The first version has no long-running work. Background jobs become useful when you need scheduled or delayed processing.
+### 2. Redis Caching
 
-### Suggested Steps
+#### What It Adds
 
-1. Add Hangfire or a similar job library.
-2. Configure persistent job storage.
-3. Create a reminder job.
-4. Add retry and failure handling.
+Stores frequently used data in memory.
 
-## Enhancement 4 - Docker Support
+```text id="3jpnr2"
+Faster reads
+Reduced DB load
+```
 
-### What It Adds
+---
 
-Docker makes the API easier to run consistently across machines.
+#### Suggested Use
 
-### Why Add It Later
+* Cache `GET /api/tasks`
+* Cache summary data
 
-You should understand how the app runs normally before containerizing it.
+---
 
-### Suggested Steps
+#### Example Flow
 
-1. Add a `Dockerfile` for the API.
-2. Add `docker-compose.yml` for API and SQL Server.
-3. Move configuration into environment variables.
-4. Test from a clean machine or clean container environment.
+```text id="6gqgwh"
+Request → Check cache → DB → Save to cache
+```
 
-## Enhancement 5 - CI/CD Pipeline
+---
 
-### What It Adds
+#### Why Later?
 
-CI/CD automatically builds, tests, and deploys the backend.
+```text id="m4xg0k"
+Adds complexity (cache invalidation)
+```
 
-### Why Add It Later
+---
 
-Automation is most useful once there are tests and a stable build process.
+### 3. Background Jobs
 
-### Suggested Steps
+#### What It Adds
 
-1. Add a build workflow.
-2. Run tests on every pull request.
-3. Publish build artifacts.
-4. Add deployment only after build and tests are reliable.
+Runs tasks outside HTTP requests.
+
+---
+
+#### Examples
+
+```text id="3f0mpw"
+Send reminder emails
+Clean old tasks
+Generate reports
+```
+
+---
+
+#### Suggested Tool
+
+```text id="xkcbaz"
+Hangfire
+```
+
+---
+
+#### Why Later?
+
+```text id="h1x5pz"
+No long-running tasks yet
+```
+
+---
+
+### 4. Docker Support
+
+#### What It Adds
+
+Run the app in a container.
+
+```text id="t6u1p0"
+Same environment everywhere
+```
+
+---
+
+#### Files to Add
+
+```text id="tkqz2r"
+Dockerfile
+docker-compose.yml
+```
+
+---
+
+#### Example Services
+
+```text id="6b3c1v"
+API
+SQL Server
+```
+
+---
+
+#### Why Later?
+
+```text id="8qz1v6"
+Need to understand app first
+```
+
+---
+
+### 5. CI/CD Pipeline
+
+#### What It Adds
+
+Automates:
+
+```text id="3x7l7m"
+Build → Test → Deploy
+```
+
+---
+
+#### Suggested Tools
+
+```text id="mf6k0s"
+GitHub Actions / Azure DevOps
+```
+
+---
+
+#### Example Pipeline
+
+```text id="l1q3dv"
+Push → Run tests → Build → Deploy
+```
+
+---
+
+#### Why Later?
+
+```text id="7p3kq8"
+Needs stable code + tests
+```
+
+---
 
 ## Recommended Priority
 
-After the core backend is complete, improve in this order:
+```text id="6w2fsh"
+1. Automated Tests
+2. Docker Support
+3. CI Pipeline
+4. Background Jobs
+5. Role-Based Auth
+6. Redis Caching
+```
 
-1. Automated tests.
-2. Docker support.
-3. CI build pipeline.
-4. Background jobs.
-5. Role-based authorization.
-6. Redis caching.
+---
 
-Why this order:
+## Why This Order?
 
-- Tests protect behavior.
-- Docker improves repeatability.
-- CI catches problems early.
-- Background jobs add useful product behavior.
-- Roles matter when there is an admin use case.
-- Caching should be driven by measured performance needs.
+```text id="8p6c4z"
+Tests → protect behavior
+Docker → consistency
+CI → automation
+Jobs → product features
+Roles → business logic
+Caching → performance optimization
+```
+
+---
 
 ## Completion Criteria
 
-You are done when:
+* You understand each enhancement
+* You know when to implement each
+* You avoid adding complexity too early
 
-- Future enhancements are understood.
-- Each enhancement has a reason to exist.
-- You know which improvements should wait until the core backend works.
+---
 
 ## Learning Notes
 
-Production readiness is not one feature.
+```text id="g8v2kc"
+Production systems grow in layers
+```
 
-It is the result of many small improvements: security, tests, observability, repeatable deployment, clear architecture, and careful data ownership.
+Not everything should be built at once.
 
+---
+
+## Final Insight
+
+You have already built:
+
+```text id="5x9d1w"
+✔ Authentication (JWT)
+✔ Authorization
+✔ CRUD APIs
+✔ Security rules
+✔ Error handling
+✔ Manual testing
+```
+
+---
+
+## 🎯 What This Means
+
+Your project is now:
+
+```text id="m3p7xz"
+Backend Foundation Complete
+```
+
+---
+
+## Next Step (Choose Your Path)
+
+👉 Add automated tests
+👉 Deploy to cloud (Azure)
+👉 Build frontend (React)
+
+---
