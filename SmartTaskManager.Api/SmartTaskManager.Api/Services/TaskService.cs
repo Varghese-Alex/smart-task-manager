@@ -1,5 +1,6 @@
 ﻿using SmartTaskManager.Api.DTOs;
 using SmartTaskManager.Api.DTOs.Tasks;
+using SmartTaskManager.Api.Exceptions;
 using SmartTaskManager.Api.Models;
 using SmartTaskManager.Api.Repositories.Interfaces;
 using SmartTaskManager.Api.Services.Interfaces;
@@ -68,6 +69,11 @@ namespace SmartTaskManager.Api.Services
 
             if (task == null)
                 return null;
+
+            if (!Enum.IsDefined(typeof(TaskItemStatus), dto.Status))
+            {
+                throw new BadRequestException("Invalid task status.");
+            }
 
             task.Title = dto.Title;
             task.Description = dto.Description;

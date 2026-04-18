@@ -2,182 +2,291 @@
 
 ## Goal
 
-Strengthen the backend by handling common security and error cases consistently.
+Strengthen the backend by enforcing ownership rules and handling errors in a clean and secure way.
 
-By the end of this task, the API should avoid obvious security mistakes and return understandable errors.
+By the end of this task, the API should:
+
+* Prevent users from accessing others’ data
+* Return clean error responses
+* Avoid exposing internal details
+
+---
 
 ## Why This Task Matters
 
-An API can be functionally correct but still unsafe.
-
-For this project, the most important security rule is:
+Even if APIs work, they can still be unsafe.
 
 ```text
-Users can only access their own tasks.
+Correct logic ≠ Secure system
 ```
 
-This task makes that rule explicit and checks the places where it can accidentally be broken.
+This task ensures:
+
+```text
+User → can ONLY access their own tasks
+```
+
+---
 
 ## Steps
 
-### 1. Verify ownership filtering everywhere
+---
 
-Check each task operation:
+### 1. Enforce Ownership Everywhere
 
-- List tasks.
-- Get task by id, if implemented.
-- Update task.
-- Delete task.
+Ensure all task queries include `userId`.
 
-Every task lookup should include `userId`.
-
-Good:
+📁 `Repositories/TaskRepository.cs`
 
 ```csharp
-task.Id == taskId && task.UserId == userId
+// ✅ Correct
+.Where(task => task.UserId == userId)
+
+// ❌ Wrong
+.Where(task => task.Id == id)
 ```
 
-Risky:
+---
+
+### 2. Do NOT Accept UserId from Client
+
+📁 `DTOs/Tasks/*`
 
 ```csharp
-task.Id == taskId
+// ❌ DO NOT include
+public int UserId { get; set; }
 ```
 
-Why:
+---
 
-Task ids are often predictable integers. Without user filtering, one user could modify another user's task by guessing an id.
+### 3. Handle Duplicate Email Registration
 
-### 2. Do not accept UserId in task DTOs
-
-Confirm that `TaskCreateDto` and `TaskUpdateDto` do not include `UserId`.
-
-Why:
-
-The backend should derive ownership from the JWT, not from client input.
-
-### 3. Handle duplicate registration emails
-
-During registration, if email already exists, return a clear error.
-
-Suggested behavior:
-
-```text
-400 Bad Request
-Email already registered.
-```
-
-Why:
-
-The database has a unique index, but the service should still detect the case and return a friendly API error.
-
-### 4. Handle invalid login
-
-If email or password is wrong, avoid revealing which one failed.
-
-Suggested response:
-
-```text
-401 Unauthorized
-Invalid email or password.
-```
-
-Why:
-
-Returning "email not found" can help attackers discover registered accounts.
-
-### 5. Validate task status
-
-Only allow known status values:
-
-```text
-0 = Pending
-1 = Completed
-```
-
-If using an enum, validate with:
+📁 `Exceptions/BadRequestException.cs`
 
 ```csharp
-Enum.IsDefined(typeof(TaskItemStatus), dto.Status)
-```
-
-Why:
-
-Without validation, clients can store invalid states like `99`.
-
-### 6. Add consistent exception handling
-
-For a learning project, you can start with simple try/catch behavior in services or controllers.
-
-A cleaner production-style approach is custom middleware:
-
-```text
-Middleware/ExceptionHandlingMiddleware.cs
-```
-
-Middleware can catch unhandled exceptions and return:
-
-```json
+namespace SmartTaskManager.Api.Exceptions
 {
-  "message": "An unexpected error occurred."
+    public class BadRequestException : Exception
+    {
+        public BadRequestException(string message) : base(message)
+        {
+        }
+    }
 }
 ```
 
-Why:
+---
 
-Unhandled exceptions should not expose stack traces or internal details to API clients.
+📁 `Services/AuthService.cs`
 
-### 7. Use proper HTTP status codes
+```csharp
+var existingUser = await _context.Users
+    .FirstOrDefaultAsync(u => u.Email == dto.Email);
 
-Recommended status codes:
-
-```text
-200 OK - successful read or update
-201 Created - successful create
-204 No Content - successful delete
-400 Bad Request - validation or business rule failure
-401 Unauthorized - missing or invalid authentication
-404 Not Found - task does not exist or does not belong to user
-500 Internal Server Error - unexpected server failure
+if (existingUser != null)
+{
+    throw new BadRequestException("Email already registered.");
+}
 ```
 
-Why:
+---
 
-HTTP status codes are part of your API's communication contract.
+### 4. Handle Invalid Login (401 Unauthorized)
 
-### 8. Protect secrets
+📁 `Exceptions/UnauthorizedException.cs`
 
-Do not commit real JWT secrets or production connection strings.
+```csharp
+namespace SmartTaskManager.Api.Exceptions
+{
+    public class UnauthorizedException : Exception
+    {
+        public UnauthorizedException(string message) : base(message)
+        {
+        }
+    }
+}
+```
 
-For local learning, `appsettings.json` can contain local values. For real deployment, use:
+---
 
-- Environment variables.
-- User secrets.
-- Cloud secret manager.
+📁 `Services/AuthService.cs`
 
-Why:
+```csharp
+if (user == null)
+    throw new UnauthorizedException("Invalid email or password.");
 
-Secrets in source control can leak and compromise the system.
+var result = _passwordHasher.VerifyHashedPassword(
+    user, user.PasswordHash, dto.Password);
+
+if (result == PasswordVerificationResult.Failed)
+    throw new UnauthorizedException("Invalid email or password.");
+```
+
+```text
+Do NOT reveal whether email or password is incorrect
+```
+
+---
+
+### 5. Validate Task Status (Service Layer)
+
+📁 `Services/TaskService.cs`
+
+Inside `UpdateTaskAsync`:
+
+```csharp
+if (!Enum.IsDefined(typeof(TaskItemStatus), dto.Status))
+{
+    throw new BadRequestException("Invalid task status.");
+}
+```
+
+---
+
+### 6. Add Global Exception Handling Middleware
+
+📁 `Middleware/ExceptionHandlingMiddleware.cs`
+
+```csharp
+using System.Net;
+using System.Text.Json;
+using SmartTaskManager.Api.Exceptions;
+
+namespace SmartTaskManager.Api.Middleware
+{
+    public class ExceptionHandlingMiddleware
+    {
+        private readonly RequestDelegate _next;
+
+        public ExceptionHandlingMiddleware(RequestDelegate next)
+        {
+            _next = next;
+        }
+
+        public async Task Invoke(HttpContext context)
+        {
+            try
+            {
+                await _next(context);
+            }
+            catch (BadRequestException ex)
+            {
+                context.Response.StatusCode = 400;
+                context.Response.ContentType = "application/json";
+
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new
+                {
+                    message = ex.Message
+                }));
+            }
+            catch (UnauthorizedException ex)
+            {
+                context.Response.StatusCode = 401;
+                context.Response.ContentType = "application/json";
+
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new
+                {
+                    message = ex.Message
+                }));
+            }
+            catch (Exception)
+            {
+                context.Response.StatusCode = 500;
+                context.Response.ContentType = "application/json";
+
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new
+                {
+                    message = "An unexpected error occurred."
+                }));
+            }
+        }
+    }
+}
+```
+
+---
+
+### 7. Register Middleware
+
+📁 `Program.cs`
+
+```csharp
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+app.UseAuthentication();
+app.UseAuthorization();
+```
+
+---
+
+## 🔥 Important Concepts
+
+---
+
+### Ownership Security
+
+```text
+task.Id + userId → ensures data isolation
+```
+
+---
+
+### Exception Flow
+
+```text
+Service → throws exception
+Middleware → catches it
+Client → receives clean response
+```
+
+---
+
+### Clean API Errors
+
+```json
+{
+  "message": "Invalid email or password."
+}
+```
+
+---
+
+### HTTP Status Codes
+
+| Scenario         | Status |
+| ---------------- | ------ |
+| Success          | 200    |
+| Create           | 201    |
+| Delete           | 204    |
+| Validation Error | 400    |
+| Unauthorized     | 401    |
+| Not Found        | 404    |
+| Server Error     | 500    |
+
+---
 
 ## Completion Criteria
 
-You are done when:
+* Ownership enforced in all queries
+* DTOs do not accept UserId
+* Duplicate email handled
+* Invalid login returns 401
+* Task status validated
+* Middleware handles exceptions globally
+* Clean error responses returned
 
-- Every task query is scoped by user id.
-- Task DTOs do not accept `UserId`.
-- Duplicate registration is handled.
-- Invalid login returns a generic error.
-- Invalid task status is rejected.
-- Unexpected errors do not expose sensitive details.
-- HTTP status codes are intentional and consistent.
+---
 
-## Learning Notes
+## Commit Your Work
 
-Security is mostly about refusing to trust the wrong thing.
+```bash
+git add .
+git commit -m "feat(task-09): add security checks, ownership validation, and structured exception handling"
+git push
+```
 
-For this app:
+---
 
-- Trust the validated JWT for identity.
-- Do not trust request bodies for ownership.
-- Do not trust ids without checking the owner.
-- Do not trust client-provided status values without validation.
+## Next Step
 
+👉 Task 10 - Final Improvements and Production Readiness

@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using SmartTaskManager.Api.Data;
 using SmartTaskManager.Api.DTOs.Auth;
+using SmartTaskManager.Api.Exceptions;
 using SmartTaskManager.Api.Helpers;
 using SmartTaskManager.Api.Models;
 using SmartTaskManager.Api.Services.Interfaces;
@@ -27,7 +28,7 @@ namespace SmartTaskManager.Api.Services
                 .AnyAsync(u => u.Email == dto.Email);
 
             if (exists)
-                throw new Exception("Email already exists");
+                throw new BadRequestException("Email already exists");
 
             var user = new User
             {
@@ -55,13 +56,13 @@ namespace SmartTaskManager.Api.Services
                 .FirstOrDefaultAsync(u => u.Email == dto.Email);
 
             if (user == null)
-                throw new Exception("Invalid credentials");
+                throw new UnauthorizedException("Invalid credentials");
 
             var result = _passwordHasher.VerifyHashedPassword(
                 user, user.PasswordHash, dto.Password);
 
             if (result == PasswordVerificationResult.Failed)
-                throw new Exception("Invalid credentials");
+                throw new UnauthorizedException("Invalid credentials");
 
             var token = _jwtHelper.GenerateToken(user);
 

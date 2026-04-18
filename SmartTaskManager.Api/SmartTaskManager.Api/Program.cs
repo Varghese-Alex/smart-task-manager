@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SmartTaskManager.Api.Data;
 using SmartTaskManager.Api.Helpers;
+using SmartTaskManager.Api.Middleware;
 using SmartTaskManager.Api.Repositories;
 using SmartTaskManager.Api.Repositories.Interfaces;
 using SmartTaskManager.Api.Services;
@@ -94,6 +95,8 @@ var app = builder.Build();
 
 // Redirect HTTP → HTTPS
 app.UseHttpsRedirection();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // =====================================
 // Authentication & Authorization
