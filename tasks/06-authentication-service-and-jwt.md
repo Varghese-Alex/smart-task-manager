@@ -4,135 +4,224 @@
 
 Implement registration, login, password hashing, and JWT token generation.
 
-By the end of this task, users should be able to register, log in, and receive a token that can be used for authenticated task APIs.
+By the end of this task, users should be able to:
+
+* Register
+* Log in
+* Receive a JWT token
+
+---
 
 ## Why This Task Matters
 
-Authentication answers two questions:
+Authentication answers:
 
-- Who is the user?
-- Can this request prove that identity?
+* Who is the user?
+* Can we trust this request?
 
-The backend should never store plain-text passwords. It should store password hashes and issue signed JWTs after successful login.
+---
 
 ## Steps
 
-### 1. Add JWT settings to configuration
+---
 
-In `appsettings.json`, add a JWT section:
+### 1. Add JWT Settings
+
+📁 `appsettings.json`
 
 ```json
-{
-  "Jwt": {
-    "Key": "replace-this-with-a-long-secret-key",
-    "Issuer": "SmartTaskManager",
-    "Audience": "SmartTaskManagerUsers",
-    "ExpiresInMinutes": 60
-  }
+"Jwt": {
+  "Key": "THIS_IS_A_SUPER_SECRET_KEY_12345",
+  "Issuer": "SmartTaskManager",
+  "Audience": "SmartTaskManagerUsers",
+  "ExpiresInMinutes": 60
 }
 ```
 
-Why:
-
-JWT generation needs a signing key and token metadata. Configuration keeps those values out of code.
-
-For real production deployments, the secret key should come from environment variables or a secret manager.
+---
 
 ### 2. Create IAuthService
 
-In Solution Explorer, right-click `Services/Interfaces`, choose `Add -> New Item`, select `Interface`, and name it `IAuthService.cs`.
-
-Suggested methods:
+📁 `Services/Interfaces/IAuthService.cs`
 
 ```csharp
-public interface IAuthService
+using SmartTaskManager.Api.DTOs.Auth;
+
+namespace SmartTaskManager.Api.Services.Interfaces
 {
-    Task<AuthResponseDto> RegisterAsync(RegisterDto dto);
-    Task<AuthResponseDto> LoginAsync(LoginDto dto);
+    public interface IAuthService
+    {
+        Task<AuthResponseDto> RegisterAsync(RegisterDto dto);
+        Task<AuthResponseDto> LoginAsync(LoginDto dto);
+    }
 }
 ```
 
-Why:
+---
 
-The controller should not know how passwords are hashed or tokens are generated. It should call a service.
+### 3. Create JwtHelper
 
-### 3. Create AuthService
-
-In Solution Explorer, right-click `Services`, choose `Add -> Class`, and name it `AuthService.cs`.
-
-Inject:
-
-- `AppDbContext`
-- configuration or a JWT helper
-
-Responsibilities:
-
-- Check whether email already exists.
-- Hash password on registration.
-- Save new user.
-- Verify password on login.
-- Generate JWT token.
-- Return `AuthResponseDto`.
-
-Why:
-
-Authentication is business logic. It belongs in a service, not directly in a controller.
-
-### 4. Hash passwords
-
-Use a proper password hashing approach.
-
-For learning projects, ASP.NET Core's `PasswordHasher<TUser>` is a good option:
+📁 `Helpers/JwtHelper.cs`
 
 ```csharp
-var passwordHasher = new PasswordHasher<User>();
-var hash = passwordHasher.HashPassword(user, dto.Password);
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+using SmartTaskManager.Api.Models;
+
+namespace SmartTaskManager.Api.Helpers
+{
+    public class JwtHelper
+    {
+        private readonly IConfiguration _config;
+
+        public JwtHelper(IConfiguration config)
+        {
+            _config = config;
+        }
+
+        public string GenerateToken(User user)
+        {
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
+
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Email, user.Email)
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: _config["Jwt:Issuer"],
+                audience: _config["Jwt:Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(
+                    int.Parse(_config["Jwt:ExpiresInMinutes"]!)),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+    }
+}
 ```
 
-To verify:
+---
+
+### 4. Create AuthService
+
+📁 `Services/AuthService.cs`
 
 ```csharp
-var result = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, dto.Password);
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using SmartTaskManager.Api.Data;
+using SmartTaskManager.Api.DTOs.Auth;
+using SmartTaskManager.Api.Helpers;
+using SmartTaskManager.Api.Models;
+using SmartTaskManager.Api.Services.Interfaces;
+
+namespace SmartTaskManager.Api.Services
+{
+    public class AuthService : IAuthService
+    {
+        private readonly AppDbContext _context;
+        private readonly JwtHelper _jwtHelper;
+        private readonly PasswordHasher<User> _passwordHasher;
+
+        public AuthService(AppDbContext context, JwtHelper jwtHelper)
+        {
+            _context = context;
+            _jwtHelper = jwtHelper;
+            _passwordHasher = new PasswordHasher<User>();
+        }
+
+        public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
+        {
+            var exists = await _context.Users
+                .AnyAsync(u => u.Email == dto.Email);
+
+            if (exists)
+                throw new Exception("Email already exists");
+
+            var user = new User
+            {
+                Email = dto.Email,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            user.PasswordHash = _passwordHasher.HashPassword(user, dto.Password);
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var token = _jwtHelper.GenerateToken(user);
+
+            return new AuthResponseDto
+            {
+                Email = user.Email,
+                Token = token
+            };
+        }
+
+        public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
+        {
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == dto.Email);
+
+            if (user == null)
+                throw new Exception("Invalid credentials");
+
+            var result = _passwordHasher.VerifyHashedPassword(
+                user, user.PasswordHash, dto.Password);
+
+            if (result == PasswordVerificationResult.Failed)
+                throw new Exception("Invalid credentials");
+
+            var token = _jwtHelper.GenerateToken(user);
+
+            return new AuthResponseDto
+            {
+                Email = user.Email,
+                Token = token
+            };
+        }
+    }
+}
 ```
 
-Why:
+---
 
-Password hashing protects users if the database is exposed. Never store plain passwords.
+### 5. Install JWT Package
 
-### 5. Create JwtHelper
+Install:
 
-In Solution Explorer, right-click `Helpers`, choose `Add -> Class`, and name it `JwtHelper.cs`.
-
-It should generate a signed token with claims such as:
-
-- User id
-- Email
-
-Important claims:
-
-```csharp
-new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
-new Claim(ClaimTypes.Email, user.Email)
+```text
+Microsoft.AspNetCore.Authentication.JwtBearer
 ```
 
-Why:
+---
 
-The task APIs need the authenticated user's id so they can filter tasks by owner.
+### 6. Configure JWT in Program.cs
 
-### 6. Configure JWT authentication
-
-Install the JWT bearer package through Visual Studio:
-
-1. Right-click the `SmartTaskManager.Api` project.
-2. Choose `Manage NuGet Packages`.
-3. Open the `Browse` tab.
-4. Search for `Microsoft.AspNetCore.Authentication.JwtBearer`.
-5. Select the package from Microsoft.
-6. Click `Install`.
-
-In `Program.cs`, add authentication and authorization:
+#### 🔹 Add using:
 
 ```csharp
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+```
+
+---
+
+#### 🔹 Add BEFORE builder.Build():
+
+```csharp
+builder.Services.AddScoped<JwtHelper>();
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -153,45 +242,48 @@ builder.Services
 builder.Services.AddAuthorization();
 ```
 
-Also add middleware in the correct order:
+---
+
+### 🔥 VERY IMPORTANT (Middleware Order)
+
+AFTER `app = builder.Build();`
 
 ```csharp
-app.UseAuthentication();
+app.UseAuthentication();   // MUST come first
 app.UseAuthorization();
 ```
 
-Why:
-
-Authentication reads and validates the token. Authorization enforces access rules.
+---
 
 ### 7. Register AuthService
-
-In `Program.cs`:
 
 ```csharp
 builder.Services.AddScoped<IAuthService, AuthService>();
 ```
 
+---
+
 ## Completion Criteria
 
-You are done when:
+* Registration works
+* Login works
+* Passwords are hashed
+* JWT token is generated
+* Token contains user id + email
+* Authentication middleware is configured
 
-- JWT settings exist.
-- `IAuthService` exists.
-- `AuthService` exists.
-- Passwords are hashed.
-- Login verifies hashed passwords.
-- JWT token includes user id and email claims.
-- JWT authentication is configured.
-- Auth service is registered in dependency injection.
+---
 
-## Learning Notes
+## Commit Your Work
 
-Authentication should be boring and careful.
+```bash
+git add .
+git commit -m "feat(task-06): implement authentication service with JWT"
+git push
+```
 
-The main security rules are:
+---
 
-- Never store plain passwords.
-- Never trust user input.
-- Never let the client decide its own `UserId`.
-- Always derive the current user from the validated token.
+## Next Step
+
+👉 Task 07 - Task Service Layer
