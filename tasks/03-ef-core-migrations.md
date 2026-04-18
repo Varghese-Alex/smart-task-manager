@@ -6,137 +6,309 @@ Create and apply the first database migration for the Smart Task Manager backend
 
 By the end of this task, SQL Server should contain the `Users` and `TaskItems` tables.
 
+---
+
 ## Why This Task Matters
 
 Migrations are version control for your database schema.
 
-Instead of manually creating tables in SQL Server, EF Core migrations let the application describe the schema in code and generate repeatable database changes.
+Instead of manually creating tables, EF Core allows you to:
 
-This matters because the backend will evolve. Migrations help you track how the database changes over time.
+* Define schema using C# models
+* Generate database changes automatically
+* Track schema changes over time
+
+This is important because your application will evolve, and your database must evolve with it.
+
+---
+
+## Prerequisites
+
+Before starting, ensure:
+
+* Task 02 is completed
+* Project builds successfully
+* SQL Server / LocalDB is available
+* Connection string is configured
+
+---
 
 ## Steps
 
-### 1. Install EF Core design package
+---
 
-Use Visual Studio's NuGet Package Manager:
+### 1. Install EF Core Design Package
 
-1. Right-click the `SmartTaskManager.Api` project.
-2. Choose `Manage NuGet Packages`.
-3. Open the `Browse` tab.
-4. Search for `Microsoft.EntityFrameworkCore.Design`.
-5. Select the package from Microsoft.
-6. Click `Install`.
+Use Visual Studio:
 
-Why:
+1. Right-click `SmartTaskManager.Api`
+2. Click `Manage NuGet Packages`
+3. Search: `Microsoft.EntityFrameworkCore.Design`
+4. Install
 
-The design package helps EF Core create migrations from your `DbContext` and models.
+#### Why:
+
+This package enables migration generation from your models and DbContext.
+
+---
 
 ### 2. Open Package Manager Console
 
-Entity Framework migrations do not have a normal point-and-click screen built into Visual Studio. The standard Visual Studio GUI workflow is to use Package Manager Console.
+EF Core migrations are executed using commands, and in Visual Studio the correct place to run them is the **Package Manager Console**.
 
-Open it from:
+#### Open it from:
 
 ```text
-Tools -> NuGet Package Manager -> Package Manager Console
+Tools → NuGet Package Manager → Package Manager Console
 ```
 
-In the console toolbar:
+This will open a terminal panel at the bottom of Visual Studio that looks like:
 
-- Set `Default project` to `SmartTaskManager.Api`.
-- Make sure `SmartTaskManager.Api` is also the startup project in Solution Explorer.
+```text
+PM>
+```
 
-Why this is acceptable even in a GUI-first workflow:
+#### Configure the Console (Important)
 
-The console is part of Visual Studio, and EF Core migrations are normally created through short commands. This is one of the places where a command is the correct tool.
+At the top of the console, you will see a dropdown called:
 
-### 3. Create the initial migration
+```text
+Default project
+```
 
-In Package Manager Console, run:
+Set it to:
 
-```powershell
+```text
+SmartTaskManager.Api
+```
+
+#### Set Startup Project
+
+In Solution Explorer:
+
+1. Right-click on `SmartTaskManager.Api`
+2. Click:
+
+```text
+Set as Startup Project
+```
+
+#### Why These Settings Are Required
+
+EF Core needs to know:
+
+* **Where your DbContext and models are** → Default Project
+* **Where your app configuration exists (Program.cs, appsettings.json)** → Startup Project
+
+In this project, both are the same:
+
+```text
+SmartTaskManager.Api
+```
+
+#### What Happens If This Is Wrong?
+
+You may see errors like:
+
+```text
+No DbContext was found
+```
+
+or migrations may fail to generate.
+
+
+
+Once this is set correctly, you are ready to run migration commands in the next step.
+
+
+---
+
+### 3. Create Initial Migration
+
+Run:
+
+```powershell id="8ql7wz"
 Add-Migration InitialCreate
 ```
 
-This should create a `Migrations` folder.
+---
 
-Why:
+### What This Does
 
-- The migration captures table creation.
-- It records primary keys, foreign keys, indexes, and column definitions.
+EF Core:
 
-### 4. Review the generated migration
+* Reads your models (`User`, `TaskItem`)
+* Reads `AppDbContext`
+* Generates SQL instructions
+
+---
+
+### Expected Result
+
+A new folder appears:
+
+```text id="i9cmcd"
+Migrations/
+```
+
+With files like:
+
+```text id="m9jvxr"
+2026xxxx_InitialCreate.cs
+AppDbContextModelSnapshot.cs
+```
+
+---
+
+### 4. Review the Migration
 
 Open the generated migration file.
 
-Check for:
+Check:
 
-- `Users` table.
-- `TaskItems` table.
-- Unique index on `Users.Email`.
-- Foreign key from `TaskItems.UserId` to `Users.Id`.
+* `Users` table
+* `TaskItems` table
+* Unique index on `Email`
+* Foreign key (`UserId` → `Users.Id`)
 
-Do not blindly trust generated code. Reading migrations helps you understand what will happen to the database.
+#### Why:
 
-### 5. Apply the migration
+Never blindly trust generated code.
+This is what will be executed on your database.
 
-In Package Manager Console, run:
+---
 
-```powershell
+### 5. Apply Migration
+
+Run:
+
+```powershell id="0mk2c2"
 Update-Database
 ```
 
-This applies the migration to SQL Server.
+---
 
-### 6. Verify the database
+### What This Does
 
-Use SQL Server Management Studio, Azure Data Studio, or another database tool.
+* Creates the database (if not exists)
+* Creates tables
+* Applies constraints
+* Tracks migration history
 
-Confirm that:
+---
 
-- The database exists.
-- `Users` table exists.
-- `TaskItems` table exists.
-- `__EFMigrationsHistory` table exists.
+### Expected Output
 
-The `__EFMigrationsHistory` table is how EF Core remembers which migrations have already been applied.
+You should see logs indicating:
+
+* Database created
+* Tables created
+* Migration applied successfully
+
+---
+
+## 6. Verify Database (SSMS)
+
+Open SQL Server Management Studio (SSMS).
+
+Try connecting to:
+
+```text id="r3qmbp"
+(localdb)\MSSQLLocalDB
+```
+
+---
+
+### Check:
+
+1. Expand **Databases**
+2. Find:
+
+```text id="pl1c3z"
+SmartTaskManagerDb
+```
+
+3. Expand **Tables**
+
+You should see:
+
+```text id="r2zzf3"
+Users
+TaskItems
+__EFMigrationsHistory
+```
+
+---
+
+### What Each Table Means
+
+* `Users` → user data
+* `TaskItems` → tasks
+* `__EFMigrationsHistory` → tracks applied migrations
+
+---
 
 ## Completion Criteria
 
 You are done when:
 
-- EF Core tooling works.
-- Initial migration exists.
-- Database update succeeds.
-- SQL Server contains the expected tables.
-- The migration has been reviewed, not just generated.
+* Migration file is created
+* Database update succeeds
+* Database exists in SQL Server
+* Tables are present
+* Migration is reviewed
+
+---
 
 ## Common Problems
 
-### Connection string error
+---
 
-If SQL Server cannot be reached, check:
+### ❌ Connection String Issues
 
-- Server name.
-- Authentication mode.
-- Database permissions.
-- `TrustServerCertificate=True` for local development.
+Check:
 
-### DbContext not found
+* Server name
+* SQL Server running
+* Correct connection string
 
-Make sure `AppDbContext` is public and registered correctly.
+---
 
-### Startup project error
+### ❌ DbContext Not Found
 
-If EF cannot find the startup project:
+Ensure:
 
-1. Right-click `SmartTaskManager.Api`.
-2. Choose `Set as Startup Project`.
-3. In Package Manager Console, set `Default project` to `SmartTaskManager.Api`.
-4. Run `Add-Migration InitialCreate` again.
+* `AppDbContext` is public
+* Registered in `Program.cs`
+
+---
+
+### ❌ Startup Project Issue
+
+Fix:
+
+1. Right-click project → Set as Startup Project
+2. In Package Manager Console → set Default Project
+3. Run again
+
+---
 
 ## Learning Notes
 
-Migrations are a contract between your code and your database.
+* Migrations = version control for database
+* Models define structure
+* Migrations apply structure
 
-A good habit is to read each migration before applying it. This catches accidental schema changes early.
+A good habit:
+
+👉 Always read migrations before applying them
+
+---
+
+## Commit Your Work
+
+```bash id="8o3o1v"
+git add .
+git commit -m "feat(task-03): add initial migration and create database schema"
+git push
+```
