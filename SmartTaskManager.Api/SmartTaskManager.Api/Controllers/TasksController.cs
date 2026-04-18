@@ -42,8 +42,11 @@ namespace SmartTaskManager.Api.Controllers
         {
             var userId = GetCurrentUserId();
 
+            if (userId == null)
+                return Unauthorized();
+
             var result = await _taskService.GetTasksAsync(
-                userId, status, search, page, pageSize);
+                userId.Value, status, search, page, pageSize);
 
             return Ok(result);
         }
@@ -55,8 +58,10 @@ namespace SmartTaskManager.Api.Controllers
         public async Task<IActionResult> CreateTask([FromBody] TaskCreateDto dto)
         {
             var userId = GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized();
 
-            var created = await _taskService.CreateTaskAsync(userId, dto);
+            var created = await _taskService.CreateTaskAsync(userId.Value, dto);
 
             return CreatedAtAction(
                 nameof(GetTaskById),
@@ -73,8 +78,10 @@ namespace SmartTaskManager.Api.Controllers
             [FromBody] TaskUpdateDto dto)
         {
             var userId = GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized();
 
-            var updated = await _taskService.UpdateTaskAsync(userId, id, dto);
+            var updated = await _taskService.UpdateTaskAsync(userId.Value, id, dto);
 
             if (updated == null)
                 return NotFound();
@@ -89,8 +96,10 @@ namespace SmartTaskManager.Api.Controllers
         public async Task<IActionResult> DeleteTask(int id)
         {
             var userId = GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized();
 
-            var deleted = await _taskService.DeleteTaskAsync(userId, id);
+            var deleted = await _taskService.DeleteTaskAsync(userId.Value, id);
 
             if (!deleted)
                 return NotFound();
