@@ -11,6 +11,14 @@ using SmartTaskManager.Api.Services.Interfaces;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? Array.Empty<string>();
+
+if (allowedOrigins.Length == 0)
+{
+    allowedOrigins = new[] { "http://localhost:5173" };
+}
 
 // =====================================
 // 1. Add services to the container
@@ -87,6 +95,20 @@ builder.Services
 // =====================================
 builder.Services.AddAuthorization();
 
+// =====================================
+// CORS
+// =====================================
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy
+            .WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
 // =====================================
@@ -95,6 +117,7 @@ var app = builder.Build();
 
 // Redirect HTTP → HTTPS
 app.UseHttpsRedirection();
+app.UseCors("AllowFrontend");
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
