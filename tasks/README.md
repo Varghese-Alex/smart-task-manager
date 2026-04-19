@@ -17,12 +17,14 @@ The original design document explains the target architecture. These task files 
 9. [Security, ownership, and error handling](09-security-ownership-and-error-handling.md)
 10. [Testing and manual verification](10-testing-and-manual-verification.md)
 11. [Future enhancements](11-future-enhancements.md)
+12. [Deploy to Azure App Service](12-deploy-to-azure-app-service.md)
+13. [Automate deployment with GitHub Actions](13-github-actions-ci-cd-to-azure.md)
 
 ## How To Use These Files
 
 Work through the files in order. Each task builds on the previous one.
 
-These tasks assume a GUI-first workflow, mainly using Visual Studio, SQL Server Management Studio, Azure Data Studio, and Swagger UI. Use command-line steps only when the tooling itself expects a command, such as Entity Framework Core migrations in Visual Studio's Package Manager Console.
+These tasks assume a GUI-first workflow, mainly using Visual Studio, SQL Server Management Studio, Azure Data Studio, and Postman for API validation. Use command-line steps only when the tooling itself expects a command, such as Entity Framework Core migrations in Visual Studio's Package Manager Console.
 
 For each task:
 
