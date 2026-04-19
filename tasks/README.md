@@ -19,6 +19,7 @@ The original design document explains the target architecture. These task files 
 11. [Future enhancements](11-future-enhancements.md)
 12. [Deploy to Azure App Service](12-deploy-to-azure-app-service.md)
 13. [Automate deployment with GitHub Actions](13-github-actions-ci-cd-to-azure.md)
+14. [Build React frontend](14-react-frontend-for-smart-task-manager.md)
 
 ## How To Use These Files
 
