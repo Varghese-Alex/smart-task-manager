@@ -1,8 +1,13 @@
 {
-  "routes": [
-    {
-      "route": "/*",
-      "rewrite": "/index.html"
-    }
-  ]
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/assets/*",
+      "/*.{css,js,png,jpg,jpeg,gif,ico,svg,webp,json,txt}"
+    ]
+  },
+  "mimeTypes": {
+    ".js": "application/javascript",
+    ".css": "text/css"
+  }
 }
