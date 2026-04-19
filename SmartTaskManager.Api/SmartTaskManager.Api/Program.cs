@@ -110,7 +110,7 @@ app.UseAuthorization();
 // =====================================
 // Development Tools
 // =====================================
-if (app.Environment.IsDevelopment())
+if (!app.Environment.IsDevelopment())
 {
     // Swagger UI (browser testing)
     // URL: https://localhost:xxxx/swagger
